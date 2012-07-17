@@ -12,11 +12,11 @@ function [ swtMap ] = swt( im, searchDirection )
 
 % Convert image to gray scale
 im = im2double(rgb2gray(im));
-%figure, imshow(im), title('Black and White Image');
+figure, imshow(im), title('Black and White Image');
 
 % Find edges using canny edge dector
 edgeMap = edge(im, 'canny');
-%figure, imshow(edgeMap), title('Edges Using Canny');
+figure, imshow(edgeMap), title('Edges Using Canny');
 
 % Get all edge pixel postitions
 [edgePointRows, edgePointCols] = find(edgeMap);
@@ -25,8 +25,8 @@ edgeMap = edge(im, 'canny');
 sobelMask = fspecial('sobel');
 dx = imfilter(im,sobelMask);
 dy = imfilter(im,sobelMask');
-%figure, imshow(dx, []), title('Horizontal Gradient Image');
-%figure, imshow(dy, []), title('Vertical Gradient Image');
+figure, imshow(dx, []), title('Horizontal Gradient Image');
+figure, imshow(dy, []), title('Vertical Gradient Image');
 
 % Initializing matrix of gradient direction
 theta = zeros(size(edgeMap,1),size(edgeMap,2));
@@ -191,7 +191,7 @@ for i=1:sizeOfStrokePoints
     
 end
 
-%figure, imshow(swtMap, []), title('Stroke Width Transform: Second Pass');
+figure, imshow(swtMap, []), title('Stroke Width Transform: Second Pass');
 
 end
 
