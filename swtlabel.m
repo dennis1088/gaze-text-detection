@@ -1,104 +1,157 @@
-function [ swtMapLabel, labelEquivalences ] = swtlabel( swtMap )
-%SWTLABEL Summary of this function goes here
-%   Detailed explanation goes here
+function [L,num,sz] = label(I,n)
+%LABEL Label connected components in 2-D arrays.
+%   LABEL is a generalization of BWLABEL: BWLABEL works with 2-D binary
+%   images only, whereas LABEL works with 2-D arrays of any class. Use
+%   BWLABEL if the input is binary since BWLABEL will be much faster.
+%
+%   L = LABEL(I,N) returns a matrix L, of the same size as I, containing
+%   labels for the connected components in I. Two adjacent components
+%   (pixels), of respective indexes IDX1 and IDX2, are connected if I(IDX1)
+%   and I(IDX2) are equal.
+%
+%   N can have a value of either 4 or 8, where 4 specifies 4-connected
+%   objects and 8 specifies 8-connected objects; if the argument is
+%   omitted, it defaults to 8.
+%
+%   Important remark:
+%   ----------------
+%   NaN values are ignored and considered as background. Because LABEL
+%   works with arrays of any class, the 0s are NOT considered as the
+%   background. 
+%
+%   Note:
+%   ----
+%   The elements of L are integer values greater than or equal to 0. The
+%   pixels labeled 0 are the background (corresponding to the NaN
+%   components of the input array). The pixels labeled 1 make up one
+%   object, the pixels labeled 2 make up a second object, and so on.
+%
+%   [L,NUM] = LABEL(...) returns in NUM the number of connected objects
+%   found in I.
+%
+%   [L,NUM,SZ] = LABEL(...) returns a matrix SZ, of the same size as I,
+%   that contains the sizes of the connected objects. For a pixel whose
+%   index is IDX, we have: SZ(IDX) = NNZ(L==L(IDX)).
+%
+%   Class Support
+%   -------------
+%   I can be logical or numeric. L is double.
+%
+%   Example
+%   -------
+%       I = [3 3 3 0 0 0 0 0
+%            3 3 1 0 6.1 6.1 9 0
+%            1 3 1 3 6.1 6.1 0 0
+%            1 3 1 3 0 0 1 0
+%            1 3 3 3 3 3 1 0
+%            1 3 1 0 0 3 1 0
+%            1 3 1 0 0 1 1 0
+%            1 1 1 1 1 0 0 0];
+%       L4 = label(I,4);
+%       L8 = label(I,8);
+%       subplot(211), imagesc(L4), axis image off
+%       title('Pixels of same color belong to the same region (4-connection)')
+%       subplot(212), imagesc(L8), axis image off    
+%       title('Pixels of same color belong to the same region (8-connection)')
+%
+%   Note
+%   ----
+%       % Comparison between BWLABEL and LABEL:
+%       BW = logical([1 1 1 0 0 0 0 0
+%                     1 1 1 0 1 1 0 0
+%                     1 1 1 0 1 1 0 0
+%                     1 1 1 0 0 0 1 0
+%                     1 1 1 0 0 0 1 0
+%                     1 1 1 0 0 0 1 0
+%                     1 1 1 0 0 1 1 0
+%                     1 1 1 0 0 0 0 0]);
+%       L = bwlabel(BW,4);
+%       % The same result can be obtained with LABEL:
+%       BW2 = double(BW);
+%       BW2(~BW) = NaN;
+%       L2 = label(BW2,4);
+%
+%   See also BWLABEL, BWLABELN, LABEL2RGB
+%
+%   -- Damien Garcia -- 2010/02, revised 2011/01
+%   http://www.biomecardio.com
 
-[m n] = size(swtMap);
-swtMapLabel = zeros(m,n);
-nextLabel = 1;
-labelEquivalences = zeros(100,100);
+% Check input arguments
+error(nargchk(1,2,nargin));
+if nargin==1, n=8; end
 
-% Labeling corner pixel located at (1,1)
-if swtMap(1,1) ~= Inf
-    swtMapLabel(1,1) = 1;
-    nextLabel = nextLabel + 1;
+assert(ndims(I)==2,'The input I must be a 2-D array')
+
+% -----
+% The Union-Find algorithm is based on the following document:
+% http://www.cs.duke.edu/courses/cps100e/fall09/notes/UnionFind.pdf
+% -----
+
+% Initialization of the two arrays (ID & SZ) required during the
+% Union-Find algorithm.
+sizI = size(I);
+id = reshape(1:prod(sizI),sizI);
+sz = ones(sizI);
+
+% Indexes of the adjacent pixels
+vec = @(x) x(:);
+if n==4 % 4-connected neighborhood
+    idx1 = [vec(id(:,1:end-1)); vec(id(1:end-1,:))];
+    idx2 = [vec(id(:,2:end)); vec(id(2:end,:))];
+elseif n==8 % 8-connected neighborhood
+    idx1 = [vec(id(:,1:end-1)); vec(id(1:end-1,:))];
+    idx2 = [vec(id(:,2:end)); vec(id(2:end,:))];
+    idx1 = [idx1; vec(id(1:end-1,1:end-1)); vec(id(2:end,1:end-1))];
+    idx2 = [idx2; vec(id(2:end,2:end)); vec(id(1:end-1,2:end))];
+else
+    error('The second input argument must be either 4 or 8.')
 end
 
-% Labeling the top row
-for y = 2:n
-    sw1 = swtMap(1,y);
-    sw2 = swtMap(1,y-1);
-    if sw1 ~= Inf
-        if swtMapLabel(1,y-1) ~= 0 & max(sw1,sw2)/min(sw1,sw2) <= 3
-            swtMapLabel(1,y) = swtMapLabel(1,y-1);
+% Create the groups and merge them (Union/Find Algorithm)
+for k = 1:length(idx1)
+    root1 = idx1(k);
+    root2 = idx2(k);
+    
+    while root1~=id(root1)
+        id(root1) = id(id(root1));
+        root1 = id(root1);
+    end
+    while root2~=id(root2)
+        id(root2) = id(id(root2));
+        root2 = id(root2);
+    end
+    
+    if root1==root2, continue, end
+    % (The two pixels belong to the same group)
+    
+    N1 = sz(root1); % size of the group belonging to root1
+    N2 = sz(root2); % size of the group belonging to root2
+    
+    if max(I(root1),I(root2))/min(I(root1),I(root2)) <= 3
+        % then merge the two groups
+        if N1 < N2
+            id(root1) = root2;
+            sz(root2) = N1+N2;
         else
-            swtMapLabel(1,y) = nextLabel;
-            nextLabel = nextLabel + 1;
+            id(root2) = root1;
+            sz(root1) = N1+N2;
         end
     end
 end
 
-% Labeling the rest of the image
-for x = 2:m
-    for y = 1:n
-        if swtMap(x,y) ~= Inf
-            
-            wLabel  = swtMapLabel(x,y-1);
-            nLabel  = swtMapLabel(x-1,y);
-            nwLabel = swtMapLabel(x-1,y-1);
-            
-            if y > 1
-                if nwLabel ~= 0
-                    swtMapLabel(x,y) = nwLabel;
-                else
-                    if wLabel == 0 & nLabel == 0
-                        swtMapLabel(x,y) = nextLabel;
-                        nextLabel = nextLabel + 1;
-                    elseif wLabel ~= 0 & nLabel == 0
-                        swtMapLabel(x,y) = wLabel;
-                    elseif wLabel == 0 & nLabel ~= 0
-                        swtMapLabel(x,y) = nLabel;
-                    else
-                        % Assign smallest label
-                        swtMapLabel(x,y) = min(nLabel,wLabel);
-                        
-                        sizeNLabel = labelEquivalences(nLabel,1);
-                        sizeWLabel = labelEquivalences(wLabel,1);
-                        NEquivalences = labelEquivalences(nLabel,2:sizeNLabel+1);
-                        WEquivalences = labelEquivalences(wLabel,2:sizeWLabel+1);
-                        
-                        if isempty(NEquivalences==wLabel)
-                            
-                            
-                            % Add west label to all of north labels
-                            % equivalences.
-                            for i=1:sizeNLabel
-                                iLabel = NEquivalences(i);
-                                sizeILabel = labelEquivalences(iLabel,1);
-                                
-                                labelEquivalences(iLabel,sizeILabel+2) = wLabel;
-                                labelEquivalences(iLabel,1) = sizeILabel + 1;
-                            end
-                            
-                            
-                            
-                            % Add north label to all of west labels
-                            % equivalences.
-                            for i=1:sizeWLabel
-                                iLabel = WEquivalences(i);
-                                sizeILabel = labelEquivalences(iLabel,1);
-                                
-                                labelEquivalences(iLabel,sizeILabel+2) = nLabel;
-                                labelEquivalences(iLabel,1) = sizeILabel + 1;
-                            end
-                            
-                        end
-                        
-                        labelEquivalences(nLabel,sizeNLabel+2) = wLabel;
-                        labelEquivalences(wLabel,sizeWLabel+2) = nLabel;
-                        labelEquivalences(nLabel,1) = sizeNLabel + 1;
-                        labelEquivalences(wLabel,1) = sizeWLabel + 1;
-                    end
-                end
-            else
-                if nLabel ~= 0
-                    swtMapLabel(x,y) = nLabel;
-                else
-                    swtMapLabel(x,y) = nextLabel;
-                    nextLabel = nextLabel + 1;
-                end
-            end
-        end
-    end
+while 1
+    id0 = id;
+    id = id(id);
+    if isequal(id0,id), break, end
 end
-end
+sz = sz(id);
 
+% Label matrix
+isNaNI = isinf(I);
+id(isNaNI) = NaN;
+[id,m,n] = unique(id);
+I = 1:length(id);
+L = reshape(I(n),sizI);
+L(isNaNI) = 0;
+
+if nargout>1, num = nnz(~isnan(id)); end
