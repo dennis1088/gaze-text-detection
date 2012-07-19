@@ -146,7 +146,7 @@ end
 sz = sz(id);
 
 % Label matrix
-isNaNI = isnan(I);
+isNaNI = isinf(I);
 id(isNaNI) = NaN;
 [id,m,n] = unique(id);
 I = 1:length(id);
