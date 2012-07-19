@@ -127,7 +127,8 @@ for k = 1:length(idx1)
     N1 = sz(root1); % size of the group belonging to root1
     N2 = sz(root2); % size of the group belonging to root2
     
-    if I(root1)==I(root2) % then merge the two groups
+    if max(I(root1),I(root2))/min(I(root1),I(root2)) <= 3
+        % then merge the two groups
         if N1 < N2
             id(root1) = root2;
             sz(root2) = N1+N2;
