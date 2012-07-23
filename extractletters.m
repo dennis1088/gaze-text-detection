@@ -24,8 +24,9 @@ for i=1:ccNum
     % Accepted font heights are between 10px and 300px
     if height>maxLetterHeight | height<minLetterHeight, continue, end
     
-    % Reject CC with hight stroke width variance
-    if varianceSW/meanSW > 1.5, continue, end
+    % Reject CC with hight stroke width variance.  The threshold if half
+    % the average stroke width of a connected component
+    if varianceSW/meanSW > .5, continue, end
     
     % Ratio between the diameter of the connected component and its
     % median stroke width to be a value less than 10
