@@ -7,5 +7,3 @@ The idea would be to use gaze data in order to augment the text detection.  Impl
 I will be using the [Tesseract OCR engine](http://tesseract-ocr.googlecode.com/svn-history/r367/trunk/doc/tesseracticdar2007.pdf) for text recognition.
 
 ## Folder Structure
-
-gaze
